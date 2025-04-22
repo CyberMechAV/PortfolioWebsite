@@ -70,4 +70,23 @@
   .font-handwriting {
     font-family: 'Caveat', cursive;
   }
+  
+  /* Card flip animations */
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+  
+  .perspective-500 {
+    perspective: 500px;
+  }
+  
+  /* Fade-in animation */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-in-out;
+  }
 }
