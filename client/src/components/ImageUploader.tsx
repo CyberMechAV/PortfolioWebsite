@@ -52,7 +52,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
         throw new Error('Failed to upload image');
       }
       
-      return await response.json();
+      const data = await response.json();
+      return data.data as PolaroidImage;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/polaroids'] });

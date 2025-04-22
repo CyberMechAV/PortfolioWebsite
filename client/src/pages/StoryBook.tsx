@@ -17,6 +17,7 @@ import {
   PersonalPage,
   ContactPage
 } from '@/components/BookPages';
+import { RocketPage } from '@/components/BookPages/index';
 import { ThemeProvider, ThemeToggle } from '@/components/ui/theme-toggle';
 import ImageUploader from '@/components/ImageUploader';
 import { Button } from '@/components/ui/button';
@@ -95,7 +96,8 @@ export default function StoryBook() {
     <CurrentPage key="current" />,
     <FuturePage key="future" />,
     <PersonalPage key="personal" />,
-    <ContactPage key="contact" />
+    <ContactPage key="contact" />,
+    <RocketPage key="rocket-game" /> // Interactive paper rocket game as the last page
   ];
   
   return (
