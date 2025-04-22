@@ -15,7 +15,6 @@ import {
 import { Upload, X, Image, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
 
 // Define interface for the polaroid image data
 interface PolaroidImage {
@@ -41,14 +40,19 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
   // Mutation for creating a new polaroid image
   const createPolaroidMutation = useMutation({
     mutationFn: async (imageData: { url: string; caption: string; rotation: number }) => {
-      const response = await apiRequest('/api/polaroids', {
+      const response = await fetch('/api/polaroids', {
         method: 'POST',
-        body: JSON.stringify(imageData),
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify(imageData),
       });
-      return response.data;
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+      
+      return await response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/polaroids'] });
