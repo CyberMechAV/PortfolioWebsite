@@ -14,22 +14,87 @@ import {
 } from '@/components/ui/dialog';
 import { Upload, X, Image, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+
+// Define interface for the polaroid image data
+interface PolaroidImage {
+  id: number;
+  url: string;
+  caption: string | null;
+  rotation: number;
+  createdAt: string;
+}
 
 interface ImageUploaderProps {
-  onImageUploaded: (imageData: { id: string; url: string; caption: string }) => void;
+  onImageUploaded: (imageData: PolaroidImage) => void;
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [caption, setCaption] = useState('');
+  const [rotation] = useState(Math.floor(Math.random() * 10) - 5); // Random rotation between -5 and 5 degrees
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Mutation for creating a new polaroid image
+  const createPolaroidMutation = useMutation({
+    mutationFn: async (imageData: { url: string; caption: string; rotation: number }) => {
+      const response = await apiRequest('/api/polaroids', {
+        method: 'POST',
+        body: JSON.stringify(imageData),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/polaroids'] });
+      onImageUploaded(data);
+      
+      toast({
+        title: "Image uploaded",
+        description: "Your image has been added to the book"
+      });
+      
+      // Reset the form
+      setUploadedImage(null);
+      setCaption('');
+      setUploading(false);
+    },
+    onError: (error) => {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Upload failed",
+        description: "There was an error saving your image. Please try again.",
+        variant: "destructive"
+      });
+      setUploading(false);
+    }
+  });
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
-      // Create a local URL for the file
+      // Create a local URL for the file preview
       const imageUrl = URL.createObjectURL(file);
       setUploadedImage(imageUrl);
+      
+      // In a real production app, we would upload the file to a storage service
+      // like AWS S3 or similar and get back a permanent URL
+      // For this demo, we'll just use base64 encoding for simplicity
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        // The result is a base64 encoded string representing the file
+        // We'll use this as our "url" in the database for demonstration
+        if (event.target && typeof event.target.result === 'string') {
+          setUploadedImage(event.target.result);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   }, []);
 
@@ -44,31 +109,19 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
 
   const handleSave = () => {
     if (uploadedImage) {
-      // In a real app, you would upload the image to a server here
-      // and get back a permanent URL
+      setUploading(true);
       
-      // For our demo, we'll just use the local object URL
-      const imageData = {
-        id: Date.now().toString(),
+      // Save the image to our database
+      createPolaroidMutation.mutate({
         url: uploadedImage,
-        caption: caption
-      };
-      
-      onImageUploaded(imageData);
-      
-      toast({
-        title: "Image uploaded",
-        description: "Your image has been added to the book"
+        caption,
+        rotation,
       });
-      
-      // Reset the form
-      setUploadedImage(null);
-      setCaption('');
     }
   };
 
   const clearImage = () => {
-    if (uploadedImage) {
+    if (uploadedImage && !uploadedImage.startsWith('data:')) {
       URL.revokeObjectURL(uploadedImage);
     }
     setUploadedImage(null);
@@ -118,6 +171,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
               <button 
                 onClick={clearImage}
                 className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                disabled={uploading}
               >
                 <X size={16} />
               </button>
@@ -131,20 +185,27 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUploaded }) => {
               value={caption} 
               onChange={(e) => setCaption(e.target.value)} 
               placeholder="Add a caption for your photo..."
+              disabled={uploading}
             />
           </div>
         </div>
         
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline" disabled={uploading}>Cancel</Button>
           </DialogClose>
           <Button 
             onClick={handleSave} 
-            disabled={!uploadedImage}
+            disabled={!uploadedImage || uploading}
             className="flex items-center gap-2"
           >
-            <Check size={16} /> Save to Book
+            {uploading ? (
+              <>Saving...</>
+            ) : (
+              <>
+                <Check size={16} /> Save to Book
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

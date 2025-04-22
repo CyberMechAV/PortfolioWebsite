@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Book from '@/components/Book';
 import { 
   CoverPage,
@@ -20,12 +20,63 @@ import {
 import { ThemeProvider, ThemeToggle } from '@/components/ui/theme-toggle';
 import ImageUploader from '@/components/ImageUploader';
 import { Button } from '@/components/ui/button';
+import { Polaroid } from '@/components/Book';
+import { useQuery } from '@tanstack/react-query';
+import { Trash2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+// Define the interface for polaroid image data
+interface PolaroidImage {
+  id: number;
+  url: string;
+  caption: string | null;
+  rotation: number;
+  createdAt: string;
+}
 
 export default function StoryBook() {
-  const [customImages, setCustomImages] = useState<Array<{id: string; url: string; caption: string}>>([]);
+  const { toast } = useToast();
   
-  const handleImageUploaded = (imageData: {id: string; url: string; caption: string}) => {
-    setCustomImages(prevImages => [...prevImages, imageData]);
+  // Fetch polaroid images from the database
+  const { 
+    data: polaroidImages = [], 
+    isLoading,
+    isError,
+    refetch 
+  } = useQuery<PolaroidImage[]>({
+    queryKey: ['/api/polaroids'],
+    staleTime: 1000 * 60, // 1 minute
+  });
+  
+  const handleImageUploaded = (imageData: PolaroidImage) => {
+    // The query will automatically refetch due to invalidation in the mutation
+    toast({
+      title: "Success!",
+      description: "Your polaroid has been added to your collection.",
+    });
+  };
+
+  const handleDeleteImage = async (id: number) => {
+    try {
+      await fetch(`/api/polaroids/${id}`, {
+        method: 'DELETE',
+      });
+      
+      // Refetch the polaroid images
+      refetch();
+      
+      toast({
+        title: "Image deleted",
+        description: "The polaroid has been removed from your collection.",
+      });
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: "Delete failed",
+        description: "There was an error deleting the image. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Default pages to display in the book
@@ -71,21 +122,41 @@ export default function StoryBook() {
           </div>
           
           {/* User uploaded images section */}
-          {customImages.length > 0 && (
-            <div className="mt-10">
-              <h2 className="text-2xl font-bold mb-4">Your Photos</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {customImages.map((image) => (
-                  <div key={image.id} className="bg-white p-2 shadow-md">
-                    <img src={image.url} alt={image.caption} className="w-full h-32 object-cover" />
-                    {image.caption && (
-                      <p className="mt-2 text-center text-sm font-handwriting">{image.caption}</p>
-                    )}
+          <div className="mt-20 mb-10 w-full">
+            <h2 className="text-3xl font-bold mb-6 text-center">My Polaroid Collection</h2>
+            
+            {isLoading ? (
+              <div className="text-center py-10">Loading your polaroids...</div>
+            ) : isError ? (
+              <div className="text-center py-10 text-red-500">
+                Error loading images. Please try again later.
+              </div>
+            ) : polaroidImages.length === 0 ? (
+              <div className="text-center py-10 text-gray-600 dark:text-gray-400">
+                No polaroids yet. Add your first photo using the "Add Photo" button.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {polaroidImages.map((image) => (
+                  <div key={image.id} className="relative group">
+                    <Polaroid 
+                      src={image.url} 
+                      alt={image.caption || 'Polaroid photo'} 
+                      caption={image.caption || ''} 
+                      rotation={image.rotation} 
+                    />
+                    <button
+                      onClick={() => handleDeleteImage(image.id)}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete image"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </main>
         
         <footer className="w-full py-4 text-center text-sm text-gray-600 dark:text-gray-400">
